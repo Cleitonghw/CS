@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Quadtree - Clique para subdividir</title>
+<style>
+  body { font-family: Arial, Helvetica, sans-serif; display:flex; gap:16px; padding:20px; background:#f4f4f6; }
+  #ui { width:260px; }
+  canvas { background: white; border:1px solid #aaa; cursor: crosshair; }
+  label { display:block; margin-top:10px; font-size:14px; }
+  .row { margin-top:10px; display:flex; gap:8px; align-items:center; }
+  button { padding:8px 12px; cursor:pointer; }
+  #info { margin-top:12px; font-size:13px; color:#333; }
+</style>
+</head>
+<body>
+  <div id="ui">
+    <h3>Quadtree - Trabalho N1</h3>
+    <div class="row">
+      <button id="resetBtn">Reset</button>
+      <button id="exportBtn">Export PNG</button>
+    </div>
+
+    <label for="maxDepth">Profundidade máxima: <span id="depthVal">5</span></label>
+    <input id="maxDepth" type="range" min="1" max="8" value="5"/>
+
+    <label><input id="showDepth" type="checkbox" checked /> Mostrar número do nível</label>
+
+    <div id="info">
+      <strong>Instruções:</strong><br/>
+      - Clique esquerdo para subdividir o quadrante clicado.<br/>
+      - Clique direito para mesclar (remover subdivisões) no quadrante clicado.<br/>
+      - Ajuste a profundidade máxima com o slider.
+    </div>
+  </div>
+
+  <canvas id="c" width="700" height="700"></canvas>
+
+<script>
+/*
+ Quadtree interactive implementation
+ - Left click: subdivide node (until maxDepth)
+ - Right click: merge node (remove its children)
+*/
+
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+
+const resetBtn = document.getElementById('resetBtn');
+const exportBtn = document.getElementById('exportBtn');
+const maxDepthSlider = document.getElementById('maxDepth');
+const depthVal = document.getElementById('depthVal');
+const showDepth = document.getElementById('showDepth');
+
+let MAX_DEPTH = parseInt(maxDepthSlider.value, 10);
+
+// Node structure
+class QuadNode {
+  constructor(x, y, size, depth=0) {
+    this.x = x;         // top-left x
+    this.y = y;         // top-left y
+    this.size = size;   // square size
+    this.depth = depth; // depth level (root 0)
+    this.children = null; // array of 4 QuadNode or null
+  }
+
+  contains(px, py) {
+    return px >= this.x && px < this.x + this.size && py >= this.y && py < this.y + this.size;
+  }
+
+  subdivide() {
+    if (this.children) return; // already subdivided
+    const s = this.size / 2;
+    const d = this.depth + 1;
+    this.children = [
+      new QuadNode(this.x,       this.y,       s, d), // NW
+      new QuadNode(this.x + s,   this.y,       s, d), // NE
+      new QuadNode(this.x,       this.y + s,   s, d), // SW
+      new QuadNode(this.x + s,   this.y + s,   s, d)  // SE
+    ];
+  }
+
+  merge() {
+    this.children = null;
+  }
+
+  isLeaf() { return this.children === null; }
+}
+
+// init root
+let root = new QuadNode(0, 0, Math.min(canvas.width, canvas.height), 0);
+
+function reset() {
+  root = new QuadNode(0, 0, Math.min(canvas.width, canvas.height), 0);
+  draw();
+}
+
+function findNodeAt(node, px, py) {
+  if (!node.contains(px, py)) return null;
+  if (node.isLeaf()) return node;
+  // check children
+  for (const c of node.children) {
+    if (c.contains(px, py)) return findNodeAt(c, px, py);
+  }
+  // fallback
+  return node;
+}
+
+// draw routines
+function depthColor(depth) {
+  // choose a pleasing palette depending on depth
+  const hues = [210, 195, 175, 150, 120, 60, 30, 0]; // varied hues
+  const h = hues[depth % hues.length] || 200;
+  const sat = 60 + Math.min(depth*6, 30);
+  const light = 92 - Math.min(depth*7, 40);
+  return `hsl(${h} ${sat}% ${light}%)`;
+}
+
+// Removendo suporte para imagens e restaurando o código original
+function drawNode(node) {
+  if (!node.isLeaf()) {
+    for (const c of node.children) drawNode(c);
+  } else {
+    ctx.fillStyle = depthColor(node.depth);
+    ctx.fillRect(node.x, node.y, node.size, node.size);
+
+    if (showDepth.checked) {
+      ctx.fillStyle = 'black';
+      ctx.font = '12px Arial';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(node.depth, node.x + node.size / 2, node.y + node.size / 2);
+    }
+  }
+}
+
+function draw() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  drawNode(root);
+}
+
+// interaction handlers
+canvas.addEventListener('mousedown', (ev) => {
+  ev.preventDefault();
+  const rect = canvas.getBoundingClientRect();
+  const x = ev.clientX - rect.left;
+  const y = ev.clientY - rect.top;
+
+  const node = findNodeAt(root, x, y);
+  if (!node) return;
+
+  if (ev.button === 0) { // Clique esquerdo
+    if (node.depth < MAX_DEPTH) {
+      if (node.isLeaf()) {
+        node.subdivide();
+      } else {
+        const child = findNodeAt(node, x, y);
+        if (child && child.isLeaf() && child.depth < MAX_DEPTH) child.subdivide();
+      }
+    }
+  } else if (ev.button === 2) { // Clique direito
+    if (node !== root) {
+      if (!node.isLeaf()) {
+        node.merge();
+      } else {
+        const parent = findParent(root, node);
+        if (parent) parent.merge();
+      }
+    } else {
+      reset();
+      return;
+    }
+  }
+  draw();
+});
+
+function findParent(current, target) {
+  if (!current.children) return null;
+  for (const child of current.children) {
+    if (child === target) return current;
+    const found = findParent(child, target);
+    if (found) return found;
+  }
+  return null;
+}
+
+// prevent context menu on right click
+canvas.addEventListener('contextmenu', (ev)=> ev.preventDefault());
+
+// slider
+maxDepthSlider.addEventListener('input', () => {
+  MAX_DEPTH = parseInt(maxDepthSlider.value, 10);
+  depthVal.textContent = MAX_DEPTH;
+});
+
+// reset/export
+resetBtn.addEventListener('click', reset);
+
+exportBtn.addEventListener('click', () => {
+  const link = document.createElement('a');
+  link.download = 'quadtree.png';
+  link.href = canvas.toDataURL('image/png');
+  link.click();
+});
+
+// initial draw
+draw();
+
+// handle window resize to keep canvas square (optional)
+window.addEventListener('resize', () => {
+  // keep canvas size fixed in this example; if you want responsive, update width/height and re-create root
+});
+
+// Certifique-se de que o canvas seja desenhado corretamente ao carregar a página
+window.addEventListener('load', () => {
+  reset(); // Redefine o quadtree e desenha o estado inicial
+});
+</script>
+</body>
+</html>
