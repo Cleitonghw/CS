@@ -21,20 +21,6 @@ CSS3
 
 JavaScript (Canvas 2D API)
 
- Como Executar
-
-Clone o repositório:
-
-git clone https://github.com/SEU_USUARIO/nome-do-repositorio.git
-
-
-Acesse a pasta do projeto:
-
-cd nome-do-repositorio
-
-
-Abra o arquivo index.html no navegador.
-
 Funcionalidade
 
 O programa inicia exibindo um quadrado principal.
@@ -43,14 +29,9 @@ Ao clicar em qualquer quadrante, esse quadrante é subdividido em quatro novos q
 
 O processo pode ser repetido em qualquer nível, criando uma árvore visual recursiva.
 
- Estrutura do Projeto
-├── index.html        # Estrutura base e canvas
-├── style.css         # Estilos visuais (opcional)
-└── script.js         # Lógica da Quadtree e interação com o Canvas
-
  Autor
 Cleiton Rodrigues
 Disciplina: Computação Gráfica
-📜 Licença
+ Licença
 
 Este projeto está sob a licença MIT — sinta-se livre para estudar, modificar e distribuir.
